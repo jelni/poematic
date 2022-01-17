@@ -20,44 +20,44 @@ fn main() {
         .map(|(n, s)| s.unwrap_or_else(|err| panic!("line {} is invalid: {}", n, err)))
         .collect::<Vec<_>>();
 
-    lines.iter().fold(0, |correct_answers, line| {
-        // clear_console(&mut stdout);
-        let (line, hidden_word) = hide_word(line);
-        stdout.queue(Print(line.blue())).unwrap();
-        stdout.queue(Print("> ")).unwrap();
-        stdout.flush().unwrap();
-        let input = stdin.next().unwrap().unwrap();
-        let input = input.trim();
-        let is_valid = input.eq_ignore_ascii_case(&hidden_word);
-        let (correct_answers, foreground_color, message) = if is_valid {
-            (
-                correct_answers + 1,
-                Color::Green,
-                format!("Correct answer!"),
-            )
-        } else {
-            (
-                correct_answers,
-                Color::Red,
-                format!("Wrong answer! Correct = \"{hidden_word}\""),
-            )
-        };
-        stdout.queue(SetForegroundColor(foreground_color)).unwrap();
-        stdout.queue(Print(format!("{message} "))).unwrap();
-        stdout
-            .queue(Print(format!(
-                "{correct_answers}/{total_answers}\n",
-                total_answers = lines.len()
-            )))
-            .unwrap();
-        stdout.queue(ResetColor).unwrap();
-        stdout
-            .queue(Print("-".repeat(TEXT_WIDTH as usize)))
-            .unwrap();
-        stdout.queue(Print("\n\n")).unwrap();
-        stdout.flush().unwrap();
-        correct_answers
-    });
+    lines
+        .iter()
+        .enumerate()
+        .fold(0, |correct_answers, (i, line)| {
+            // clear_console(&mut stdout);
+            let (line, hidden_word) = hide_word(line);
+            stdout.queue(Print(line.blue())).unwrap();
+            stdout.queue(Print("> ")).unwrap();
+            stdout.flush().unwrap();
+            let input = stdin.next().unwrap().unwrap();
+            let input = input.trim();
+            let is_valid = input.eq_ignore_ascii_case(&hidden_word);
+            let (correct_answers, foreground_color, message) = if is_valid {
+                (
+                    correct_answers + 1,
+                    Color::Green,
+                    format!("Correct answer!"),
+                )
+            } else {
+                (
+                    correct_answers,
+                    Color::Red,
+                    format!("Wrong answer! Correct = \"{hidden_word}\""),
+                )
+            };
+            stdout.queue(SetForegroundColor(foreground_color)).unwrap();
+            stdout.queue(Print(format!("{message} "))).unwrap();
+            stdout
+                .queue(Print(format!("{correct_answers}/{}\n", i + 1)))
+                .unwrap();
+            stdout.queue(ResetColor).unwrap();
+            stdout
+                .queue(Print("-".repeat(TEXT_WIDTH as usize)))
+                .unwrap();
+            stdout.queue(Print("\n\n")).unwrap();
+            stdout.flush().unwrap();
+            correct_answers
+        });
 }
 
 // here we're using AsRef<str> instead of &str or String, because AsRef<str> can accept both of these.
