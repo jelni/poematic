@@ -1,73 +1,83 @@
-#![feature(stdin_forwarders)]
-use crossterm::style::{Color, ResetColor, SetForegroundColor, Stylize};
+use crossterm::style::{Color, Print, ResetColor, SetForegroundColor, Stylize};
 use crossterm::terminal::{Clear, ClearType};
 use crossterm::{cursor, execute, QueueableCommand};
-use lazy_static::lazy_static;
 use rand::Rng;
-use regex::Regex;
 use std::fs;
-use std::io::{self, Write};
+use std::io::{self, BufRead, BufReader, Write};
 
 const FILENAME: &str = "poem.txt";
 const TEXT_WIDTH: u8 = 64;
 
 fn main() {
-    let mut stdin = io::stdin().lines();
+    let mut stdin = BufReader::new(io::stdin()).lines();
     let mut stdout = io::stdout();
 
-    let mut good_answers = 0;
-    let mut bad_answers = 0;
+    let file = fs::File::open(FILENAME).expect("failed loading file");
+    let file = BufReader::new(file);
+    let lines = file
+        .lines()
+        .enumerate()
+        .map(|(n, s)| s.unwrap_or_else(|err| panic!("line {} is invalid: {}", n, err)))
+        .collect::<Vec<_>>();
 
-    let contents = fs::read_to_string(FILENAME).expect(format!("{} not found!", FILENAME).as_str());
-    let lines: Vec<&str> = contents.lines().map(|l| l.trim()).collect();
-
-    for line in lines.iter() {
+    lines.iter().fold(0, |correct_answers, line| {
         // clear_console(&mut stdout);
         let (line, hidden_word) = hide_word(line);
-        println!("{}", line.blue());
-        print!("> ");
+        stdout.queue(Print(line.blue())).unwrap();
+        stdout.queue(Print("> ")).unwrap();
         stdout.flush().unwrap();
-        if let Ok(input) = stdin.next().unwrap() {
-            let input = input.trim().to_string();
-
-            if input.to_lowercase() == hidden_word.to_lowercase() {
-                good_answers += 1;
-                stdout.queue(SetForegroundColor(Color::Green)).unwrap();
-                print!("Good!");
-            } else {
-                bad_answers += 1;
-                stdout.queue(SetForegroundColor(Color::Red)).unwrap();
-                print!("Wrong! ({hidden_word})");
-            }
-        }
-        let all_answers = good_answers + bad_answers;
-        println!(" {good_answers}/{all_answers}");
+        let input = stdin.next().unwrap().unwrap();
+        let input = input.trim();
+        let is_valid = input.eq_ignore_ascii_case(&hidden_word);
+        let (correct_answers, foreground_color, message) = if is_valid {
+            (
+                correct_answers + 1,
+                Color::Green,
+                format!("Correct answer!"),
+            )
+        } else {
+            (
+                correct_answers,
+                Color::Red,
+                format!("Wrong answer! Correct = \"{hidden_word}\""),
+            )
+        };
+        stdout.queue(SetForegroundColor(foreground_color)).unwrap();
+        stdout.queue(Print(format!("{message} "))).unwrap();
+        stdout
+            .queue(Print(format!(
+                "{correct_answers}/{total_answers}\n",
+                total_answers = lines.len()
+            )))
+            .unwrap();
         stdout.queue(ResetColor).unwrap();
-        println!("{}", "-".repeat(TEXT_WIDTH as usize));
-    }
+        stdout
+            .queue(Print("-".repeat(TEXT_WIDTH as usize)))
+            .unwrap();
+        stdout.queue(Print("\n\n")).unwrap();
+        stdout.flush().unwrap();
+        correct_answers
+    });
 }
 
-fn hide_word(line: &str) -> (String, String) {
-    lazy_static! {
-        static ref WORD_RE: Regex = Regex::new(r"(?P<start>.*?)(?P<word>\w+)(?P<end>.*)").unwrap();
-    }
-    let mut rand = rand::thread_rng();
-    let words = line.split_whitespace();
-    let word_count = words.clone().count();
-    let mut words: Vec<&str> = words.collect();
+// here we're using AsRef<str> instead of &str or String, because AsRef<str> can accept both of these.
+fn hide_word(line: impl AsRef<str>) -> (String, String) {
+    let line = line.as_ref();
+    let words = line.split_whitespace().collect::<Vec<_>>();
+    let n = rand::thread_rng().gen_range(0..words.len());
+    let hidden_word = words.get(n).unwrap().to_string();
+    // eventually replace it with some constant if you want to make it harder for user to recognize the hidden word
+    let censored_word = "_".repeat(hidden_word.len());
 
-    let index = rand.gen_range(0..word_count);
-    let word = words[index];
-    let captures = WORD_RE.captures(word).unwrap();
-    let hidden_word: String = captures.name("word").unwrap().as_str().to_string();
-    let mut word = String::new();
-    word.push_str(captures.name("start").unwrap().as_str());
-    word.push_str("___");
-    word.push_str(captures.name("end").unwrap().as_str());
-    words[index] = word.as_str();
-    let new_line = words.join(" ");
+    // encapsulate mutable access into a block, so that it's clearly visible where it gets mutated.
+    let words = {
+        let mut words = words;
+        words[n] = &censored_word;
+        words
+    };
 
-    return (new_line, hidden_word);
+    let line = words.join(" ");
+    (line, hidden_word)
 }
 
 #[allow(dead_code)]
