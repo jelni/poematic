@@ -1,6 +1,6 @@
-use crossterm::style::{Color, ResetColor, SetForegroundColor, Stylize};
+use crossterm::style::{Color, Stylize};
 use crossterm::terminal::{Clear, ClearType};
-use crossterm::{cursor, execute, QueueableCommand};
+use crossterm::{cursor, execute};
 use lazy_static::lazy_static;
 use rand::Rng;
 use regex::Regex;
@@ -15,43 +15,38 @@ fn main() {
     let mut stdout = io::stdout();
 
     let file = fs::File::open(FILENAME)
-        .unwrap_or_else(|err| panic!("failed reading \"{FILENAME}\": {err}"));
+        .unwrap_or_else(|err| panic!("Failed reading \"{FILENAME}\": {err}"));
     let file = io::BufReader::new(file);
     let lines = file
         .lines()
-        .enumerate()
-        .map(|(n, l)| l.unwrap_or_else(|err| panic!("line {} is invalid: {}", n, err)))
+        .map(|l| l.expect("Failed parsing file"))
         .collect::<Vec<_>>();
 
-    lines
-        .iter()
-        .enumerate()
-        .fold(0, |correct_answers, (i, line)| {
-            let (line, hidden_word) = hide_word(line);
-            print!("{}\n> ", line.blue());
-            stdout.flush().unwrap();
-            let input = stdin.next().unwrap().unwrap();
-            let input = input.trim();
-            let is_valid = input.to_lowercase() == hidden_word.to_lowercase();
-            let (correct_answers, foreground_color, message) = if is_valid {
-                (
-                    correct_answers + 1,
-                    Color::Green,
-                    String::from("Correct answer!"),
-                )
-            } else {
-                (
-                    correct_answers,
-                    Color::Red,
-                    format!("Wrong answer! Correct: \"{hidden_word}\""),
-                )
-            };
-            stdout.queue(SetForegroundColor(foreground_color)).unwrap();
-            println!("{message} {correct_answers}/{}", i + 1);
-            stdout.queue(ResetColor).unwrap();
-            println!("{}", "-".repeat(TEXT_WIDTH as usize));
-            correct_answers
-        });
+    let mut correct_answers = 0;
+    for (i, line) in lines.iter().enumerate() {
+        let (line, hidden_word) = hide_word(line);
+        print!("{}\n> ", line.with(Color::Blue));
+        stdout.flush().unwrap();
+        let input = stdin.next().unwrap().unwrap();
+        let input = input.trim();
+        let is_valid = input.to_lowercase() == hidden_word.to_lowercase();
+        let (color, message) = if is_valid {
+            {
+                correct_answers += 1;
+                (Color::Green, String::from("Correct answer!"))
+            }
+        } else {
+            (
+                Color::Red,
+                format!("Wrong answer! Correct: \"{hidden_word}\""),
+            )
+        };
+        println!(
+            "{}",
+            format!("{message} {correct_answers}/{}", i + 1).with(color)
+        );
+        println!("{}", "-".repeat(TEXT_WIDTH as usize));
+    }
 }
 
 fn hide_word(line: impl AsRef<str>) -> (String, String) {
