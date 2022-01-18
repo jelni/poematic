@@ -1,9 +1,7 @@
 use crossterm::style::{Color, Stylize};
 use crossterm::terminal::{Clear, ClearType};
 use crossterm::{cursor, execute};
-use lazy_static::lazy_static;
 use rand::Rng;
-use regex::Regex;
 use std::fs;
 use std::io::{self, BufRead, Write};
 
@@ -24,17 +22,15 @@ fn main() {
 
     let mut correct_answers = 0;
     for (i, line) in lines.iter().enumerate() {
-        let (line, hidden_word) = hide_word(line);
+        let (line, hidden_word) = hide_word(&line[..]);
         print!("{}\n> ", line.with(Color::Blue));
         stdout.flush().unwrap();
         let input = stdin.next().unwrap().unwrap();
         let input = input.trim();
         let is_valid = input.to_lowercase() == hidden_word.to_lowercase();
         let (color, message) = if is_valid {
-            {
-                correct_answers += 1;
-                (Color::Green, String::from("Correct answer!"))
-            }
+            correct_answers += 1;
+            (Color::Green, String::from("Correct answer!"))
         } else {
             (
                 Color::Red,
@@ -49,24 +45,20 @@ fn main() {
     }
 }
 
-fn hide_word(line: impl AsRef<str>) -> (String, String) {
-    lazy_static! {
-        static ref WORD_RE: Regex = Regex::new(r"\w+").unwrap();
-    }
+/// Selects a random word in the given string and replaces it with a blank: `___`.
+/// Returns the resulting string and the selected word
+fn hide_word(sentence: &str) -> (String, &str) {
+    let words = sentence.split_whitespace().collect::<Vec<_>>();
 
-    let mut words = line.as_ref().split_whitespace().collect::<Vec<_>>();
-    let n = rand::thread_rng().gen_range(0..words.len());
+    let idx = rand::thread_rng().gen_range(0..words.len());
+    let hidden_word = words[idx].trim_matches(|ch: char| !ch.is_alphabetic());
 
-    let word = words[n].to_string();
-    let capture = WORD_RE.find(&word).unwrap();
-    let hidden_word = capture.as_str().to_string();
+    // Safe because `hidden_word` always points to a subslice of `sentence`
+    let byte_offset = unsafe { hidden_word.as_ptr().offset_from(sentence.as_ptr()) as usize };
+    let mut sentence = sentence.to_string();
+    sentence.replace_range(byte_offset..(byte_offset + hidden_word.len()), "___");
 
-    let mut censored_word = word.clone();
-    censored_word.replace_range(capture.range(), "___");
-
-    words[n] = censored_word.as_str();
-    let new_line = words.join(" ");
-    (new_line, hidden_word)
+    (sentence, hidden_word)
 }
 
 #[allow(dead_code)]
