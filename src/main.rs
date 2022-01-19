@@ -4,6 +4,7 @@ use crossterm::{cursor, execute};
 use rand::Rng;
 use std::fs;
 use std::io::{self, BufRead, Write};
+use poematic::*;
 
 const FILENAME: &str = "poem.txt";
 const TEXT_WIDTH: u8 = 64;
@@ -27,7 +28,7 @@ fn main() {
         stdout.flush().unwrap();
         let input = stdin.next().unwrap().unwrap();
         let input = input.trim();
-        let is_valid = input.to_lowercase() == hidden_word.to_lowercase();
+        let is_valid = input.eq_unicode_insensitive(&hidden_word);
         let (color, message) = if is_valid {
             correct_answers += 1;
             (Color::Green, String::from("Correct answer!"))
