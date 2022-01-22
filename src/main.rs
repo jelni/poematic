@@ -2,7 +2,7 @@ use crossterm::style::{Color, Stylize};
 use crossterm::terminal::{Clear, ClearType};
 use crossterm::{cursor, execute};
 use std::borrow::Cow;
-use std::fs;
+use std::{fs, iter};
 use std::io::{self, BufRead, Write};
 
 use poematic::*;
@@ -31,14 +31,8 @@ fn main() {
         stdout.flush().unwrap();
 
         let input = stdin.next().unwrap().unwrap();
-        let input_words = input.split_human().collect::<Vec<_>>();
 
-        let is_valid = hidden_words
-            .iter()
-            .zip(input_words.iter())
-            .all(|(&h, &i)| h.eq_unicode_insensitive(i));
-
-        let (color, message) = if is_valid {
+        let (color, message) = if is_valid_guess(&input, &hidden_words) {
             correct_answers += 1;
             (Color::Green, Cow::Borrowed("Correct answer!"))
         } else {
@@ -64,4 +58,26 @@ fn clear_console(stdout: &mut io::Stdout) {
         Clear(ClearType::Purge),
     )
     .unwrap();
+}
+
+fn is_valid_guess(guess: &str, hidden_words: &[&str]) -> bool {
+    hidden_words
+        .iter()
+        .zip(guess.split_human().chain(iter::repeat("")))
+        .all(|(&h, g)| h.eq_unicode_insensitive(g))
+}
+
+#[cfg(test)]
+mod test {
+    use super::*;
+
+    #[test]
+    fn test_is_valid_guess() {
+        assert!(is_valid_guess("foo", &["foo"]));
+        assert!(!is_valid_guess("foo", &["bar"]));
+        assert!(is_valid_guess("hello world", &["hello", "world"]));
+        assert!(!is_valid_guess("world hello", &["hello", "world"]));
+        assert!(!is_valid_guess("hello", &["hello", "world"]));
+        assert!(is_valid_guess("hello world foo", &["hello", "world"]));
+    }
 }
