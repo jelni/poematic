@@ -1,9 +1,8 @@
 use crossterm::style::{Color, Stylize};
 use crossterm::terminal::{Clear, ClearType};
 use crossterm::{cursor, execute};
-use std::borrow::Cow;
-use std::{fs, iter};
 use std::io::{self, BufRead, Write};
+use std::{fs, iter};
 
 use poematic::*;
 
@@ -32,19 +31,17 @@ fn main() {
 
         let input = stdin.next().unwrap().unwrap();
 
-        let (color, message) = if is_valid_guess(&input, &hidden_words) {
+        if is_valid_guess(&input, &hidden_words) {
             correct_answers += 1;
-            (Color::Green, Cow::Borrowed("Correct answer!"))
+            print!("{}", "Correct answer! ".with(Color::Green));
         } else {
-            (
-                Color::Red,
-                format!("Wrong answer! Correct: {}", hidden_words.join(", ")).into(),
-            )
+            print!(
+                "{}",
+                format!("Wrong answer! Correct: {} ", hidden_words.join(", ")).with(Color::Red),
+            );
         };
-        println!(
-            "{}",
-            format!("{message} {correct_answers}/{}", i + 1).with(color)
-        );
+
+        println!("{correct_answers}/{}", i + 1);
         println!("{}", "-".repeat(TEXT_WIDTH as usize));
     }
 }
