@@ -1,12 +1,13 @@
 use crossterm::style::{Color, Stylize};
 use crossterm::terminal::{Clear, ClearType};
 use crossterm::{cursor, execute};
-use rand::Rng;
-use std::fs;
 use std::io::{self, BufRead, Write};
+use std::{fs, iter};
+
 use poematic::*;
 
 const FILENAME: &str = "poem.txt";
+const DIFFICULTY: u8 = 3;
 const TEXT_WIDTH: u8 = 64;
 
 fn main() {
@@ -22,44 +23,27 @@ fn main() {
         .collect::<Vec<_>>();
 
     let mut correct_answers = 0;
+
     for (i, line) in lines.iter().enumerate() {
-        let (line, hidden_word) = hide_word(&line[..]);
+        let (line, hidden_words) = hide_words(&line, "___", DIFFICULTY as usize);
         print!("{}\n> ", line.with(Color::Blue));
         stdout.flush().unwrap();
+
         let input = stdin.next().unwrap().unwrap();
-        let input = input.trim();
-        let is_valid = input.eq_unicode_insensitive(&hidden_word);
-        let (color, message) = if is_valid {
+
+        if is_valid_guess(&input, &hidden_words) {
             correct_answers += 1;
-            (Color::Green, String::from("Correct answer!"))
+            print!("{}", "Correct answer! ".with(Color::Green));
         } else {
-            (
-                Color::Red,
-                format!("Wrong answer! Correct: \"{hidden_word}\""),
-            )
+            print!(
+                "{}",
+                format!("Wrong answer! Correct: {} ", hidden_words.join(", ")).with(Color::Red),
+            );
         };
-        println!(
-            "{}",
-            format!("{message} {correct_answers}/{}", i + 1).with(color)
-        );
+
+        println!("{correct_answers}/{}", i + 1);
         println!("{}", "-".repeat(TEXT_WIDTH as usize));
     }
-}
-
-/// Selects a random word in the given string and replaces it with a blank: `___`.
-/// Returns the resulting string and the selected word
-fn hide_word(sentence: &str) -> (String, &str) {
-    let words = sentence.split_whitespace().collect::<Vec<_>>();
-
-    let idx = rand::thread_rng().gen_range(0..words.len());
-    let hidden_word = words[idx].trim_matches(|ch: char| !ch.is_alphabetic());
-
-    // Safe because `hidden_word` always points to a subslice of `sentence`
-    let byte_offset = unsafe { hidden_word.as_ptr().offset_from(sentence.as_ptr()) as usize };
-    let mut sentence = sentence.to_string();
-    sentence.replace_range(byte_offset..(byte_offset + hidden_word.len()), "___");
-
-    (sentence, hidden_word)
 }
 
 #[allow(dead_code)]
@@ -71,4 +55,26 @@ fn clear_console(stdout: &mut io::Stdout) {
         Clear(ClearType::Purge),
     )
     .unwrap();
+}
+
+fn is_valid_guess(guess: &str, hidden_words: &[&str]) -> bool {
+    hidden_words
+        .iter()
+        .zip(guess.split_human().chain(iter::repeat("")))
+        .all(|(&h, g)| h.eq_unicode_insensitive(g))
+}
+
+#[cfg(test)]
+mod test {
+    use super::*;
+
+    #[test]
+    fn test_is_valid_guess() {
+        assert!(is_valid_guess("foo", &["foo"]));
+        assert!(!is_valid_guess("foo", &["bar"]));
+        assert!(is_valid_guess("hello world", &["hello", "world"]));
+        assert!(!is_valid_guess("world hello", &["hello", "world"]));
+        assert!(!is_valid_guess("hello", &["hello", "world"]));
+        assert!(is_valid_guess("hello world foo", &["hello", "world"]));
+    }
 }
