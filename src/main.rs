@@ -1,6 +1,4 @@
 use crossterm::style::{Color, Stylize};
-use crossterm::terminal::{Clear, ClearType};
-use crossterm::{cursor, execute};
 use std::io::{self, BufRead, Write};
 use std::{fs, iter};
 
@@ -44,17 +42,6 @@ fn main() {
         println!("{correct_answers}/{}", i + 1);
         println!("{}", "-".repeat(TEXT_WIDTH as usize));
     }
-}
-
-#[allow(dead_code)]
-fn clear_console(stdout: &mut io::Stdout) {
-    execute!(
-        stdout,
-        cursor::MoveTo(0, 0),
-        Clear(ClearType::All),
-        Clear(ClearType::Purge),
-    )
-    .unwrap();
 }
 
 fn is_valid_guess(guess: &str, hidden_words: &[&str]) -> bool {
