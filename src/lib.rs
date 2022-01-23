@@ -33,10 +33,10 @@ impl<'a> SplitHuman<'a> for str {
     ///
     /// ```
     /// use poematic::SplitHuman;
-    /// let words = "Lorem ipsum? It's dolor, sit amet!"
+    /// let words = "Lorem-ipsum? It's dolor, sit amet!"
     ///     .split_human()
     ///     .collect::<Vec<_>>();
-    /// assert_eq!(&words, &["Lorem", "ipsum", "It's", "dolor", "sit", "amet"]);
+    /// assert_eq!(&words, &["Lorem-ipsum", "It's", "dolor", "sit", "amet"]);
     /// ```
     fn split_human(&'a self) -> Box<dyn Iterator<Item = Self::Item> + 'a> {
         Box::new(
@@ -51,7 +51,7 @@ impl<'a> SplitHuman<'a> for str {
 pub fn hide_words<'a>(sentence: &'a str, n: usize) -> (String, Vec<&'a str>) {
     let mut rng = rand::thread_rng();
     let mut result = sentence.to_string();
-    let mut hidden_words = vec![];
+    let mut hidden_words = Vec::new();
 
     let mut words_to_hide = sentence
         .split_human()
@@ -77,9 +77,35 @@ pub fn hide_words<'a>(sentence: &'a str, n: usize) -> (String, Vec<&'a str>) {
 mod test {
     use super::*;
 
+    const TEST_TEXT: &str = "Lorem-ipsum? It's __dolor, [sit] amet!";
+
+    #[test]
+    fn test_eq_unicode_insensitive() {
+        assert!("lorem ipsum".eq_unicode_insensitive("LOREM IPSUM"));
+        assert!("Lorem ipsum".eq_unicode_insensitive("Łóręm ipśum"));
+        assert!("\u{0065}".eq_unicode_insensitive("\u{0435}"));
+    }
+
+    #[test]
+    fn test_split_human() {
+        let words = TEST_TEXT.split_human().collect::<Vec<_>>();
+        assert_eq!(&words, &["Lorem-ipsum", "It's", "dolor", "sit", "amet"]);
+    }
+
     #[test]
     fn test_hide_words() {
-        let (_, words) = hide_words("Lorem ipsum? Dolor sit amet!", 3);
-        assert_eq!(words.len(), 3);
+        let n = 3;
+        let (sentence, words) = hide_words(TEST_TEXT, n);
+        assert_eq!(words.len(), n);
+        assert_eq!(
+            TEST_TEXT.split_whitespace().count(),
+            sentence.split_whitespace().count()
+        );
+
+        let n = 2;
+        assert_eq!(hide_words("foo, [baz] bar!", n).0.matches("___").count(), n);
+
+        let n = 100;
+        assert_eq!(hide_words("hello world", n).1.len(), 2)
     }
 }

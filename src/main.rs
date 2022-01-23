@@ -1,23 +1,20 @@
 use crossterm::style::{Color, Stylize};
+use std::error;
+use std::fs;
 use std::io::{self, BufRead, Write};
-use std::{fs, iter};
 
 use poematic::*;
 
 const FILENAME: &str = "poem.txt";
 const TEXT_WIDTH: u8 = 64;
 
-fn main() {
+fn main() -> Result<(), Box<dyn error::Error>> {
     let mut stdin = io::BufReader::new(io::stdin()).lines();
     let mut stdout = io::stdout();
 
-    let file = fs::File::open(FILENAME)
-        .unwrap_or_else(|err| panic!("Failed reading \"{FILENAME}\": {err}"));
+    let file = fs::File::open(FILENAME)?;
     let file = io::BufReader::new(file);
-    let lines = file
-        .lines()
-        .map(|l| l.expect("Failed parsing file"))
-        .collect::<Vec<_>>();
+    let lines = file.lines().map(Result::unwrap).collect::<Vec<_>>();
 
     let mut words_to_hide = 1;
     loop {
@@ -25,9 +22,9 @@ fn main() {
         for (i, line) in lines.iter().enumerate() {
             let (line, hidden_words) = hide_words(&line, words_to_hide as usize);
             print!("{}\n> ", line.with(Color::Blue));
-            stdout.flush().unwrap();
+            stdout.flush()?;
 
-            let input = stdin.next().unwrap().unwrap();
+            let input = stdin.next().unwrap()?;
 
             if is_valid_guess(&input, &hidden_words) {
                 correct_answers += 1;
@@ -50,9 +47,15 @@ fn main() {
 }
 
 fn is_valid_guess(guess: &str, hidden_words: &[&str]) -> bool {
+    let guess = guess.split_human().collect::<Vec<_>>();
+
+    if guess.len() != hidden_words.len() {
+        return false;
+    }
+
     hidden_words
         .iter()
-        .zip(guess.split_human().chain(iter::repeat("")))
+        .zip(guess)
         .all(|(&h, g)| h.eq_unicode_insensitive(g))
 }
 
@@ -65,8 +68,7 @@ mod test {
         assert!(is_valid_guess("foo", &["foo"]));
         assert!(!is_valid_guess("foo", &["bar"]));
         assert!(is_valid_guess("hello world", &["hello", "world"]));
-        assert!(!is_valid_guess("world hello", &["hello", "world"]));
         assert!(!is_valid_guess("hello", &["hello", "world"]));
-        assert!(is_valid_guess("hello world foo", &["hello", "world"]));
+        assert!(!is_valid_guess("hello world foo", &["hello", "world"]));
     }
 }
