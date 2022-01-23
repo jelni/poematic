@@ -23,7 +23,7 @@ fn main() {
     loop {
         let mut correct_answers = 0;
         for (i, line) in lines.iter().enumerate() {
-            let (line, hidden_words) = hide_words(&line, "___", words_to_hide as usize);
+            let (line, hidden_words) = hide_words(&line, words_to_hide as usize);
             print!("{}\n> ", line.with(Color::Blue));
             stdout.flush().unwrap();
 

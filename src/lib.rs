@@ -9,8 +9,8 @@ impl<T> EqUnicodeInsensitive<T> for str
 where
     T: ?Sized + AsRef<str>,
 {
-    /// Compares two strings ignoring letter case and permitting ascii equivalents
-    /// for unicode characters
+    /// Compares two strings ignoring letter case and permitting ASCII equivalents
+    /// for unicode characters.
     ///
     /// ```
     /// use poematic::EqUnicodeInsensitive;
@@ -29,7 +29,7 @@ pub trait SplitHuman<'a> {
 impl<'a> SplitHuman<'a> for str {
     type Item = &'a str;
 
-    /// Splits a string on whitespace and trims non-alphabetic chars off of words
+    /// Splits a string on whitespace and trims non-alphabetic chars off of words.
     ///
     /// ```
     /// use poematic::SplitHuman;
@@ -46,9 +46,9 @@ impl<'a> SplitHuman<'a> for str {
     }
 }
 
-/// Replaces `n` random words in the given string with the given blank string.
-/// Returns the resulting string and the selected words
-pub fn hide_words<'a>(sentence: &'a str, blank: &str, n: usize) -> (String, Vec<&'a str>) {
+/// Replaces `n` random words in the given string with a blank `___`.
+/// Returns the resulting string and the selected words.
+pub fn hide_words<'a>(sentence: &'a str, n: usize) -> (String, Vec<&'a str>) {
     let mut rng = rand::thread_rng();
     let mut result = sentence.to_string();
     let mut hidden_words = vec![];
@@ -63,7 +63,8 @@ pub fn hide_words<'a>(sentence: &'a str, blank: &str, n: usize) -> (String, Vec<
     for (_, word) in words_to_hide.into_iter().rev() {
         // Safe because `word` always points to a subslice of `sentence`
         let byte_offset = unsafe { word.as_ptr().offset_from(sentence.as_ptr()) as usize };
-        result.replace_range(byte_offset..(byte_offset + word.len()), blank);
+        let blank = "_".repeat(word.chars().count());
+        result.replace_range(byte_offset..(byte_offset + word.len()), blank.as_str());
 
         hidden_words.push(word);
     }
@@ -78,8 +79,7 @@ mod test {
 
     #[test]
     fn test_hide_words() {
-        let (sentence, words) = hide_words("Lorem ipsum? Dolor sit amet!", "___", 3);
+        let (_, words) = hide_words("Lorem ipsum? Dolor sit amet!", 3);
         assert_eq!(words.len(), 3);
-        assert_eq!(sentence.matches("___").count(), 3);
     }
 }
