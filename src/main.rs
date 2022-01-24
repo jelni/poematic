@@ -1,14 +1,20 @@
-use crossterm::style::{Color, Stylize};
 use std::error;
 use std::fs;
-use std::io::{self, BufRead, Write};
+use std::io;
+use std::io::{BufRead, Write};
+use std::process;
 
 use poematic::*;
+
+use crossterm::style::{Color, Stylize};
+use ctrlc;
 
 const FILENAME: &str = "poem.txt";
 const TEXT_WIDTH: u8 = 64;
 
 fn main() -> Result<(), Box<dyn error::Error>> {
+    ctrlc::set_handler(|| process::exit(0))?;
+
     let mut stdin = io::BufReader::new(io::stdin()).lines();
     let mut stdout = io::stdout();
 
